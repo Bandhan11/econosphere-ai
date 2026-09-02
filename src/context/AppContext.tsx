@@ -6,8 +6,11 @@ import {
   LocalMarketItem,
   FinancialInstrument,
   CompanyIntelligence,
+  UserProfile,
+  EconomicScaleLevel,
 } from "../types";
 import { COUNTRIES, LOCAL_MARKETS, FINANCIAL_INSTRUMENTS, COMPANIES } from "../data/mockDatabase";
+import { VERIFIED_ECONOMISTS } from "../data/economicSocialData";
 import { translations, TranslationSchema } from "../i18n/translations";
 
 export type NavSection =
@@ -36,7 +39,10 @@ export type NavSection =
   | "career"
   | "profile"
   | "dashboard"
-  | "challenges";
+  | "challenges"
+  | "feed"
+  | "discovery"
+  | "theory";
 
 export interface UserAlert {
   id: string;
@@ -93,12 +99,35 @@ export interface AppContextType {
   navigateToCountry: (countryId: string) => void;
   navigateToCompany: (companyId: string) => void;
   navigateToInstrument: (ticker: string) => void;
+
+  // Authentication & Identity
+  currentUser: UserProfile | null;
+  authToken: string | null;
+  login: (identifier: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  registerUser: (data: any) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
+  updateProfile: (data: Partial<UserProfile>) => Promise<{ success: boolean; error?: string }>;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  authModalMode: "login" | "register" | "forgot";
+  setAuthModalMode: (mode: "login" | "register" | "forgot") => void;
+
+  // Social & Profiles
+  targetProfileUser: UserProfile | null;
+  setTargetProfileUser: (user: UserProfile | null) => void;
+  viewUserProfile: (personalIdOrId: string) => Promise<void>;
+  followUser: (targetUserId: string) => Promise<void>;
+  connectUser: (targetUserId: string) => Promise<void>;
+
+  // Economic Scale Discovery
+  economicScale: EconomicScaleLevel;
+  setEconomicScale: (scale: EconomicScaleLevel) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<NavSection>("home");
+  const [activeTab, setActiveTab] = useState<NavSection>("feed");
   const [language, setLanguage] = useState<LanguageCode>("en");
   const [userRole, setUserRole] = useState<UserRole>("economist");
   const [selectedCountryId, setSelectedCountryId] = useState<string>("BD");
@@ -110,6 +139,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
   const [aiExplanationLevel, setAiExplanationLevel] = useState<AIExplanationLevel>("University");
   const [currencyDenomination, setCurrencyDenomination] = useState<"USD" | "BDT" | "EUR" | "INR" | "JPY">("USD");
+
+  // Authentication & Identity States
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem("econosphere_user");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // fallback
+      }
+    }
+    return VERIFIED_ECONOMISTS[0]; // Default authenticated as Founding Fellow Dr. Wahiduddin Mahmud
+  });
+
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return localStorage.getItem("econosphere_token") || "demo-session-token-001";
+  });
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<"login" | "register" | "forgot">("login");
+  const [targetProfileUser, setTargetProfileUser] = useState<UserProfile | null>(null);
+  const [economicScale, setEconomicScale] = useState<EconomicScaleLevel>("national");
 
   const [personalLabs, setPersonalLabs] = useState<any[]>([
     {
@@ -262,6 +313,225 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab("markets");
   };
 
+  // Auth & Identity Methods
+  const login = async (identifier: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password: pass }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Login failed" };
+      }
+      setCurrentUser(data.user);
+      setAuthToken(data.token);
+      localStorage.setItem("econosphere_user", JSON.stringify(data.user));
+      localStorage.setItem("econosphere_token", data.token);
+      if (data.user.role) setUserRole(data.user.role);
+      return { success: true };
+    } catch (err: any) {
+      // Offline fallback for pre-seeded verified accounts
+      const cleanId = identifier.trim().toLowerCase().replace(/^@/, "");
+      const matched = VERIFIED_ECONOMISTS.find(
+        (u) =>
+          u.email.toLowerCase() === cleanId ||
+          u.username.toLowerCase() === cleanId ||
+          u.personalId.toLowerCase() === cleanId
+      );
+      if (matched) {
+        setCurrentUser(matched);
+        setAuthToken("offline-token-" + matched.id);
+        localStorage.setItem("econosphere_user", JSON.stringify(matched));
+        if (matched.role) setUserRole(matched.role);
+        return { success: true };
+      }
+      return { success: false, error: "Network error during authentication." };
+    }
+  };
+
+  const registerUser = async (data: any): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (!res.ok) {
+        return { success: false, error: resData.error || "Registration failed" };
+      }
+      setCurrentUser(resData.user);
+      setAuthToken(resData.token);
+      localStorage.setItem("econosphere_user", JSON.stringify(resData.user));
+      localStorage.setItem("econosphere_token", resData.token);
+      if (resData.user.role) setUserRole(resData.user.role);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: "Network error during registration: " + err.message };
+    }
+  };
+
+  const logout = () => {
+    if (authToken) {
+      fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` },
+      }).catch(() => {});
+    }
+    setCurrentUser(null);
+    setAuthToken(null);
+    localStorage.removeItem("econosphere_user");
+    localStorage.removeItem("econosphere_token");
+  };
+
+  const updateProfile = async (data: Partial<UserProfile>): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: "Not logged in" };
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken || ""}`,
+        },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (!res.ok) return { success: false, error: resData.error || "Update failed" };
+      setCurrentUser(resData.user);
+      localStorage.setItem("econosphere_user", JSON.stringify(resData.user));
+      return { success: true };
+    } catch (err: any) {
+      // Local fallback
+      const updated = { ...currentUser, ...data };
+      setCurrentUser(updated);
+      localStorage.setItem("econosphere_user", JSON.stringify(updated));
+      return { success: true };
+    }
+  };
+
+  const viewUserProfile = async (personalIdOrId: string) => {
+    try {
+      const res = await fetch(`/api/users/profile/${encodeURIComponent(personalIdOrId)}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTargetProfileUser(data.profile);
+      } else {
+        const localFound = VERIFIED_ECONOMISTS.find(
+          (u) =>
+            u.personalId.toLowerCase() === personalIdOrId.toLowerCase() ||
+            u.id === personalIdOrId ||
+            u.username.toLowerCase() === personalIdOrId.toLowerCase().replace(/^@/, "")
+        );
+        if (localFound) setTargetProfileUser(localFound);
+      }
+    } catch (e) {
+      const localFound = VERIFIED_ECONOMISTS.find(
+        (u) =>
+          u.personalId.toLowerCase() === personalIdOrId.toLowerCase() ||
+          u.id === personalIdOrId ||
+          u.username.toLowerCase() === personalIdOrId.toLowerCase().replace(/^@/, "")
+      );
+      if (localFound) setTargetProfileUser(localFound);
+    }
+    setActiveTab("profile");
+  };
+
+  const followUser = async (targetUserId: string) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    try {
+      const res = await fetch("/api/users/follow", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken || ""}`,
+        },
+        body: JSON.stringify({ targetUserId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const isFollowing = data.isFollowing;
+        const updatedFollowing = isFollowing
+          ? [...currentUser.following, targetUserId]
+          : currentUser.following.filter((id) => id !== targetUserId);
+        const updatedUser = {
+          ...currentUser,
+          following: updatedFollowing,
+          followingCount: data.followingCount,
+        };
+        setCurrentUser(updatedUser);
+        localStorage.setItem("econosphere_user", JSON.stringify(updatedUser));
+
+        if (targetProfileUser && targetProfileUser.id === targetUserId) {
+          setTargetProfileUser({
+            ...targetProfileUser,
+            followersCount: data.targetFollowersCount,
+          });
+        }
+      }
+    } catch (e) {
+      // Local toggle
+      const isFollowing = currentUser.following.includes(targetUserId);
+      const updatedFollowing = isFollowing
+        ? currentUser.following.filter((id) => id !== targetUserId)
+        : [...currentUser.following, targetUserId];
+      const updatedUser = {
+        ...currentUser,
+        following: updatedFollowing,
+        followingCount: updatedFollowing.length,
+      };
+      setCurrentUser(updatedUser);
+    }
+  };
+
+  const connectUser = async (targetUserId: string) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    try {
+      const res = await fetch("/api/users/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken || ""}`,
+        },
+        body: JSON.stringify({ targetUserId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const isConnected = data.isConnected;
+        const updatedConnections = isConnected
+          ? [...currentUser.connections, targetUserId]
+          : currentUser.connections.filter((id) => id !== targetUserId);
+        const updatedUser = {
+          ...currentUser,
+          connections: updatedConnections,
+          connectionsCount: data.connectionsCount,
+        };
+        setCurrentUser(updatedUser);
+        localStorage.setItem("econosphere_user", JSON.stringify(updatedUser));
+      }
+    } catch (e) {
+      const isConnected = currentUser.connections.includes(targetUserId);
+      const updatedConnections = isConnected
+        ? currentUser.connections.filter((id) => id !== targetUserId)
+        : [...currentUser.connections, targetUserId];
+      const updatedUser = {
+        ...currentUser,
+        connections: updatedConnections,
+        connectionsCount: updatedConnections.length,
+      };
+      setCurrentUser(updatedUser);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -306,6 +576,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         navigateToCountry,
         navigateToCompany,
         navigateToInstrument,
+
+        // Auth & Identity
+        currentUser,
+        authToken,
+        login,
+        registerUser,
+        logout,
+        updateProfile,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
+        authModalMode,
+        setAuthModalMode,
+
+        // Profiles & Social
+        targetProfileUser,
+        setTargetProfileUser,
+        viewUserProfile,
+        followUser,
+        connectUser,
+
+        // Discovery
+        economicScale,
+        setEconomicScale,
       }}
     >
       {children}

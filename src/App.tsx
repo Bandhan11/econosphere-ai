@@ -3,6 +3,7 @@ import { AppProvider, useApp } from "./context/AppContext";
 import { Header } from "./components/layout/Header";
 import { Navigation } from "./components/layout/Navigation";
 import { SearchModal } from "./components/common/SearchModal";
+import { AuthModal } from "./components/auth/AuthModal";
 
 // Views
 import { HomeView } from "./components/views/HomeView";
@@ -26,6 +27,9 @@ import { TradeView } from "./components/views/TradeView";
 import { CareerView } from "./components/views/CareerView";
 import { LabsView } from "./components/views/LabsView";
 import { MagazineView } from "./components/views/MagazineView";
+import { SocialFeedView } from "./components/views/SocialFeedView";
+import { EconomicDiscoveryView } from "./components/views/EconomicDiscoveryView";
+import { TheoryKnowledgeView } from "./components/views/TheoryKnowledgeView";
 import { BottomNav } from "./components/layout/BottomNav";
 
 const MainContent: React.FC = () => {
@@ -33,6 +37,9 @@ const MainContent: React.FC = () => {
 
   return (
     <main className="flex-1 overflow-y-auto pb-16 md:pb-0 bg-[#0E0F12] text-[#F3F2EE]">
+      {activeTab === "feed" && <SocialFeedView />}
+      {activeTab === "discovery" && <EconomicDiscoveryView />}
+      {activeTab === "theory" && <TheoryKnowledgeView />}
       {activeTab === "home" && <HomeView />}
       {activeTab === "learn" && <LearnView />}
       {activeTab === "simulate" && <SimulateView />}
@@ -69,6 +76,7 @@ export default function App() {
         </div>
         <BottomNav />
         <SearchModal />
+        <AuthModal />
       </div>
     </AppProvider>
   );

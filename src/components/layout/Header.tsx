@@ -35,11 +35,17 @@ export const Header: React.FC = () => {
     setCurrencyDenomination,
     isMobileNavOpen,
     setIsMobileNavOpen,
+    currentUser,
+    setIsAuthModalOpen,
+    setAuthModalMode,
+    viewUserProfile,
+    logout,
   } = useApp();
 
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isRoleOpen, setIsRoleOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const rolesList: { role: UserRole; title: string; desc: string }[] = [
     { role: "economist", title: "Senior Economist", desc: "Advanced econometric models, forecasting, and policy analysis" },
@@ -323,6 +329,92 @@ export const Header: React.FC = () => {
               </>
             )}
           </div>
+
+          {/* User Account / Identity Pill */}
+          {currentUser ? (
+            <div className="relative">
+              <button
+                id="user-profile-header-btn"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-[#17181D] hover:bg-[#1E2026] border border-white/10 hover:border-red-600/40 text-xs text-neutral-200 transition-colors"
+              >
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.fullName}
+                  referrerPolicy="no-referrer"
+                  className="w-6 h-6 rounded-full object-cover border border-white/20"
+                />
+                <div className="hidden sm:flex flex-col items-start leading-none text-left">
+                  <span className="font-semibold text-white text-[11px] truncate max-w-[100px]">
+                    {currentUser.fullName}
+                  </span>
+                  <span className="font-mono text-[9px] text-red-400 font-bold">
+                    {currentUser.personalId}
+                  </span>
+                </div>
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              </button>
+
+              {isUserMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-64 bg-[#141519] border border-white/15 p-3 shadow-2xl z-50 text-xs font-sans space-y-2">
+                    <div className="pb-2 border-b border-white/10">
+                      <div className="font-bold text-white">{currentUser.fullName}</div>
+                      <div className="font-mono text-red-400 text-[11px] font-bold">
+                        Personal ID: {currentUser.personalId}
+                      </div>
+                      <div className="text-[10px] text-neutral-400 truncate">
+                        {currentUser.institution}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        viewUserProfile(currentUser.personalId);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-white/5 text-neutral-200 hover:text-white transition-colors flex items-center justify-between"
+                    >
+                      <span>View Researcher Profile</span>
+                      <span className="text-[10px] font-mono text-neutral-400">→</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setAuthModalMode("register");
+                        setIsAuthModalOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-white/5 text-neutral-200 hover:text-white transition-colors"
+                    >
+                      Create New Personal ID
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        logout();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors border-t border-white/10 pt-2"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setAuthModalMode("login");
+                setIsAuthModalOpen(true);
+              }}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
+            >
+              <span>Sign In / ID</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

@@ -43,6 +43,15 @@ export const Navigation: React.FC = () => {
 
   const navGroups: NavGroup[] = [
     {
+      groupTitle: "Social & Discovery Network",
+      items: [
+        { id: "feed", label: "Social Economics Feed", icon: <Users2 className="w-4 h-4" />, tag: "Peer" },
+        { id: "discovery", label: "Economic Scale Navigator", icon: <Compass className="w-4 h-4" />, tag: "Household-to-Global" },
+        { id: "theory", label: "Theory Knowledge & Formulas", icon: <GraduationCap className="w-4 h-4" />, tag: "AI Pedagogy" },
+        { id: "profile", label: "Researcher Profile & ID", icon: <ShieldCheck className="w-4 h-4" />, tag: "Identity" },
+      ],
+    },
+    {
       groupTitle: "Core Intelligence",
       items: [
         { id: "home", label: t.nav.home, icon: <LayoutDashboard className="w-4 h-4" /> },

@@ -451,3 +451,231 @@ export interface CommodityItem {
   topExporters: string[];
   description: string;
 }
+
+export interface UserProfile {
+  id: string;
+  personalId: string; // e.g. "ECN-000108" or "@tariq_econ"
+  username: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  avatarUrl?: string;
+  role: UserRole;
+  country: string;
+  region: string;
+  city: string;
+  education: string;
+  institution: string;
+  fieldOfStudy: string;
+  professionalRole: string;
+  bio: string;
+  skills: string[];
+  researchInterests: string[];
+  badges: { id: string; name: string; icon: string; issuer: string; date: string }[];
+  achievements: string[];
+  publicationsCount: number;
+  projectsCount: number;
+  followersCount: number;
+  followingCount: number;
+  connectionsCount: number;
+  followers: string[];
+  following: string[];
+  connections: string[];
+  privacy: {
+    isPublic: boolean;
+    showEmail: boolean;
+    showPhone: boolean;
+  };
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  isVerified?: boolean;
+  citationsCount?: number;
+  createdAt: string;
+}
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorName: string;
+  authorPersonalId: string;
+  authorRole: string;
+  authorAvatar?: string;
+  content: string;
+  createdAt: string;
+  likes: number;
+}
+
+export interface PostPoll {
+  question: string;
+  options: { id: string; text: string; votes: number; voters: string[] }[];
+  totalVotes: number;
+}
+
+export type PostType =
+  | "text"
+  | "image"
+  | "chart"
+  | "dataset"
+  | "research"
+  | "analysis"
+  | "opinion"
+  | "question"
+  | "poll"
+  | "case_study"
+  | "simulation_result"
+  | "blog"
+  | "article"
+  | "news_commentary"
+  | "project_update";
+
+export type EconomicPostType = PostType;
+export type EconomicCategory = string;
+
+export interface PostConnectionTags {
+  country?: string;
+  region?: string;
+  district?: string;
+  city?: string;
+  market?: string;
+  product?: string;
+  company?: string;
+  industry?: string;
+  indicator?: string;
+  researchPaper?: string;
+  policy?: string;
+  environment?: string;
+  climate?: string;
+  economicEvent?: string;
+}
+
+export interface SocialPost {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorPersonalId: string;
+  authorRole: string;
+  authorAvatar?: string;
+  authorInstitution?: string;
+  postType: PostType;
+  title?: string;
+  content: string;
+  chartData?: {
+    title: string;
+    labels: string[];
+    values: number[];
+    unit: string;
+  };
+  datasetPreview?: {
+    name: string;
+    columns: string[];
+    rows: any[][];
+  };
+  poll?: PostPoll;
+  connections: PostConnectionTags;
+  aiAssistance?: {
+    hasAIAssistance: boolean;
+    improvedReasoning?: string;
+    suggestedIndicators?: string[];
+    theoryContext?: string;
+    discussionQuestions?: string[];
+  };
+  provenance?: {
+    source: string;
+    dataDate: string;
+    isVerified: boolean;
+    isEstimate: boolean;
+  };
+  likes: string[]; // user IDs who liked
+  bookmarks: string[]; // user IDs who saved
+  sharesCount: number;
+  comments: PostComment[];
+  createdAt: string;
+  updatedAt?: string;
+  reported?: boolean;
+}
+
+export type EconomicScaleLevel =
+  | "household"
+  | "local"
+  | "district"
+  | "city"
+  | "region"
+  | "national"
+  | "global";
+
+export interface HouseholdSimulatorInputs {
+  monthlyGrossIncome: number;
+  householdSize: number;
+  foodExpenditure: number;
+  housingRent: number;
+  utilitiesEnergy: number;
+  transportCommute: number;
+  educationExpenditure: number;
+  healthcareExpenditure: number;
+  debtRepaymentMonthly: number;
+  emergencySavings: number;
+  localInflationRate: number;
+  currency: string;
+}
+
+export interface HouseholdSimulatorOutputs {
+  monthlyIncome?: number;
+  totalExpenses?: number;
+  disposableIncome?: number;
+  netDisposableIncome?: number;
+  totalExpenditure?: number;
+  netSavingsOrDeficit?: number;
+  savingsRate?: number;
+  savingsRatePct?: number;
+  foodSharePct?: number; // Engel's Law metric
+  foodBudgetShare?: number;
+  debtServiceRatioPct?: number;
+  financialPressureScore?: number; // 0 to 100
+  financialStatus?: "Secure" | "Moderate Pressure" | "High Vulnerability" | "Critical Deficit";
+  vulnerabilityRisk?: "Low" | "Moderate" | "High" | "Critical";
+  realPurchasingPowerErosion?: number; // Currency amount lost to inflation
+  realPurchasingPowerLoss?: number;
+  recommendations?: string[];
+  recommendedActions?: string[];
+}
+
+export interface TheoryKnowledgeConcept {
+  id: string;
+  name: string;
+  category?: string;
+  economists?: string[];
+  year?: number | string;
+  summary?: string;
+  formula?: string;
+  parameters?: { symbol: string; description: string }[];
+  domain?:
+    | "Microeconomics"
+    | "Macroeconomics"
+    | "Development Economics"
+    | "International Economics"
+    | "Public Economics"
+    | "Labor Economics"
+    | "Financial Economics"
+    | "Environmental Economics"
+    | "Agricultural Economics";
+  definition?: string;
+  assumptions: string[];
+  equation?: string;
+  mathExplanation?: string;
+  graphType?: string;
+  graphDescription?: string;
+  realWorldExample?: string;
+  realWorldApplication?: string;
+  criticisms?: string[];
+  bangladeshExample?: string;
+  globalExample?: string;
+  simulationConcept?: string;
+  policyApplication?: string;
+  practiceQuestions?: {
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
+}
