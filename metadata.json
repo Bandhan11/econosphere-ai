@@ -1,0 +1,6 @@
+{
+  "name": "EconoSphere AI",
+  "description": "Global AI Economics Intelligence, Simulation Laboratory, Financial Terminal & Research Platform",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
