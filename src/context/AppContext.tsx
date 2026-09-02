@@ -10,7 +10,6 @@ import {
   EconomicScaleLevel,
 } from "../types";
 import { COUNTRIES, LOCAL_MARKETS, FINANCIAL_INSTRUMENTS, COMPANIES } from "../data/mockDatabase";
-import { VERIFIED_ECONOMISTS } from "../data/economicSocialData";
 import { translations, TranslationSchema } from "../i18n/translations";
 
 export type NavSection =
@@ -140,7 +139,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [aiExplanationLevel, setAiExplanationLevel] = useState<AIExplanationLevel>("University");
   const [currencyDenomination, setCurrencyDenomination] = useState<"USD" | "BDT" | "EUR" | "INR" | "JPY">("USD");
 
-  // Authentication & Identity States
+  // Authentication & Identity States (STRICT REAL USER POLICY)
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem("econosphere_user");
     if (saved) {
@@ -150,11 +149,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // fallback
       }
     }
-    return VERIFIED_ECONOMISTS[0]; // Default authenticated as Founding Fellow Dr. Wahiduddin Mahmud
+    return null; // strictly null until a real user registers or logs in
   });
 
   const [authToken, setAuthToken] = useState<string | null>(() => {
-    return localStorage.getItem("econosphere_token") || "demo-session-token-001";
+    return localStorage.getItem("econosphere_token") || null;
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
@@ -162,47 +161,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [targetProfileUser, setTargetProfileUser] = useState<UserProfile | null>(null);
   const [economicScale, setEconomicScale] = useState<EconomicScaleLevel>("national");
 
-  const [personalLabs, setPersonalLabs] = useState<any[]>([
-    {
-      id: "lab-1",
-      title: "Bangladesh Food Inflation & Logistics Spread Lab",
-      description: "Empirical pass-through model evaluating fuel price shocks against retail potato and rice price margins in northern divisions.",
-      category: "Inflation",
-      modelType: "OLS & Distributed Lag",
-      parameters: { fuelShockPct: 12.5, storageHoldingWeeks: 4, interestRateBps: 100 },
-      notes: "Baseline shows 10% fuel hike induces +2.8% food CPI inflation with a 3-week transmission lag.",
-      resultsSummary: "R² = 0.74, F = 38.2, highly significant transmission parameter.",
-      createdAt: "2026-08-15",
-      updatedAt: "2026-08-28",
-      collaborators: ["Dr. A. Rahman", "S. Chowdhury"],
-    },
-    {
-      id: "lab-2",
-      title: "Naogaon Rice Value Chain Equilibrium Simulation",
-      description: "Micro-market supply and demand equilibrium with open-market sales (OMS) intervention threshold.",
-      category: "Commodity Market",
-      modelType: "Non-linear Equilibrium",
-      parameters: { harvestYieldMT: 450000, millersSyndicateMargin: 18, omsSupplyMT: 25000 },
-      notes: "Direct public grain distribution of 25k MT curbs speculative wholesale markups by ~৳4.5/kg.",
-      resultsSummary: "Market equilibrium restored within 14 trading days.",
-      createdAt: "2026-08-20",
-      updatedAt: "2026-08-30",
-      collaborators: ["M. Hossain"],
-    },
-    {
-      id: "lab-3",
-      title: "Central Bank Monetary Policy & Taylor Rule Cascade",
-      description: "Taylor Rule interest rate calibration with inflation gap and output gap weights.",
-      category: "Monetary Policy",
-      modelType: "Taylor Rule 1993",
-      parameters: { neutralRate: 4.0, inflationTarget: 5.5, currentInflation: 9.7, outputGap: -1.2 },
-      notes: "Model recommends policy repo rate hike of +150 bps to anchor 12-month expected inflation.",
-      resultsSummary: "Target policy rate: 10.25% (Observed repo: 10.0%).",
-      createdAt: "2026-08-22",
-      updatedAt: "2026-09-01",
-      collaborators: ["Institutional Quant Group"],
-    },
-  ]);
+  const [personalLabs, setPersonalLabs] = useState<any[]>(() => {
+    const saved = localStorage.getItem("econosphere_labs");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
 
   const [alerts, setAlerts] = useState<UserAlert[]>([
     {
@@ -284,13 +251,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `lab-${Date.now()}`,
       createdAt: new Date().toISOString().split("T")[0],
       updatedAt: new Date().toISOString().split("T")[0],
-      collaborators: ["You"],
+      collaborators: [currentUser?.fullName || "You"],
     };
-    setPersonalLabs((prev) => [newLab, ...prev]);
+    setPersonalLabs((prev) => {
+      const updated = [newLab, ...prev];
+      localStorage.setItem("econosphere_labs", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const deletePersonalLab = (id: string) => {
-    setPersonalLabs((prev) => prev.filter((l) => l.id !== id));
+    setPersonalLabs((prev) => {
+      const updated = prev.filter((l) => l.id !== id);
+      localStorage.setItem("econosphere_labs", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const navigateToMarket = (marketId: string) => {
@@ -313,6 +288,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab("markets");
   };
 
+  // Check auth validity on mount
+  useEffect(() => {
+    if (authToken) {
+      fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+        .then((res) => {
+          if (res.ok) return res.json();
+          throw new Error("Invalid session");
+        })
+        .then((data) => {
+          if (data.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem("econosphere_user", JSON.stringify(data.user));
+          }
+        })
+        .catch(() => {
+          // Token expired or invalid
+          setCurrentUser(null);
+          setAuthToken(null);
+          localStorage.removeItem("econosphere_user");
+          localStorage.removeItem("econosphere_token");
+        });
+    }
+  }, [authToken]);
+
   // Auth & Identity Methods
   const login = async (identifier: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -323,7 +324,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       const data = await res.json();
       if (!res.ok) {
-        return { success: false, error: data.error || "Login failed" };
+        return { success: false, error: data.error || "Login failed. Please check your credentials." };
       }
       setCurrentUser(data.user);
       setAuthToken(data.token);
@@ -332,22 +333,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (data.user.role) setUserRole(data.user.role);
       return { success: true };
     } catch (err: any) {
-      // Offline fallback for pre-seeded verified accounts
-      const cleanId = identifier.trim().toLowerCase().replace(/^@/, "");
-      const matched = VERIFIED_ECONOMISTS.find(
-        (u) =>
-          u.email.toLowerCase() === cleanId ||
-          u.username.toLowerCase() === cleanId ||
-          u.personalId.toLowerCase() === cleanId
-      );
-      if (matched) {
-        setCurrentUser(matched);
-        setAuthToken("offline-token-" + matched.id);
-        localStorage.setItem("econosphere_user", JSON.stringify(matched));
-        if (matched.role) setUserRole(matched.role);
-        return { success: true };
-      }
-      return { success: false, error: "Network error during authentication." };
+      return { success: false, error: "Network error during authentication: " + err.message };
     }
   };
 
@@ -420,22 +406,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         setTargetProfileUser(data.profile);
       } else {
-        const localFound = VERIFIED_ECONOMISTS.find(
-          (u) =>
-            u.personalId.toLowerCase() === personalIdOrId.toLowerCase() ||
-            u.id === personalIdOrId ||
-            u.username.toLowerCase() === personalIdOrId.toLowerCase().replace(/^@/, "")
-        );
-        if (localFound) setTargetProfileUser(localFound);
+        if (currentUser && (currentUser.personalId.toLowerCase() === personalIdOrId.toLowerCase() || currentUser.id === personalIdOrId)) {
+          setTargetProfileUser(currentUser);
+        } else {
+          setTargetProfileUser(null);
+        }
       }
     } catch (e) {
-      const localFound = VERIFIED_ECONOMISTS.find(
-        (u) =>
-          u.personalId.toLowerCase() === personalIdOrId.toLowerCase() ||
-          u.id === personalIdOrId ||
-          u.username.toLowerCase() === personalIdOrId.toLowerCase().replace(/^@/, "")
-      );
-      if (localFound) setTargetProfileUser(localFound);
+      if (currentUser && (currentUser.personalId.toLowerCase() === personalIdOrId.toLowerCase() || currentUser.id === personalIdOrId)) {
+        setTargetProfileUser(currentUser);
+      } else {
+        setTargetProfileUser(null);
+      }
     }
     setActiveTab("profile");
   };

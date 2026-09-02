@@ -19,7 +19,6 @@ import {
   BookOpen,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { VERIFIED_ECONOMISTS } from "../../data/economicSocialData";
 
 export const AuthModal: React.FC = () => {
   const {
@@ -111,17 +110,6 @@ export const AuthModal: React.FC = () => {
       }, 1200);
     } else {
       setErrorMessage(res.error || "Registration failed.");
-    }
-  };
-
-  const quickLoginAs = async (user: typeof VERIFIED_ECONOMISTS[0]) => {
-    setIdentifier(user.personalId);
-    setPassword("EconoSphere2026!");
-    setLoading(true);
-    const res = await login(user.personalId, "EconoSphere2026!");
-    setLoading(false);
-    if (res.success) {
-      setIsAuthModalOpen(false);
     }
   };
 
@@ -271,23 +259,26 @@ export const AuthModal: React.FC = () => {
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              {/* Quick Demo Scholar Logins */}
-              <div className="pt-4 border-t border-white/10 mt-6">
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-2">
-                  Fast Demo Sign-In as Certified Scholar:
+              {/* Strict Real User Policy Notice & Registration Switch */}
+              <div className="pt-4 border-t border-white/10 mt-6 text-center">
+                <div className="text-xs text-neutral-400">
+                  Don't have an EconoSphere account yet?
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {VERIFIED_ECONOMISTS.slice(0, 4).map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => quickLoginAs(u)}
-                      className="text-left p-2 rounded bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/50 transition-colors text-xs"
-                    >
-                      <div className="font-semibold text-white truncate">{u.fullName}</div>
-                      <div className="text-[10px] font-mono text-red-400">{u.personalId} • {u.role}</div>
-                    </button>
-                  ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthModalMode("register");
+                    setErrorMessage("");
+                  }}
+                  className="mt-2 text-xs font-semibold text-red-400 hover:text-red-300 underline underline-offset-2 transition-colors"
+                >
+                  Register your personal profile & obtain your unique Personal ID
+                </button>
+                <div className="mt-3 p-2.5 rounded bg-white/5 border border-white/10 text-[11px] text-neutral-400 text-left flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-neutral-200">Strict Real User Policy:</strong> Every profile is tied to a real registered researcher. No synthetic accounts or automated dummy profiles.
+                  </span>
                 </div>
               </div>
             </form>

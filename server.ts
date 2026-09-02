@@ -1,10 +1,11 @@
 import express from "express";
 import path from "path";
 import crypto from "crypto";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { VERIFIED_ECONOMISTS, INITIAL_SOCIAL_POSTS } from "./src/data/economicSocialData";
+import { DEMO_USERS, DEMO_POSTS, DEMO_DATASET_INFO } from "./src/data/demoData";
 import { THEORY_CONCEPTS } from "./src/data/theoryKnowledgeData";
 import { UserProfile, SocialPost, PostComment } from "./src/types";
 
@@ -31,12 +32,134 @@ function getGeminiClient() {
   });
 }
 
+// ============================================================================
+// PERSISTENT DATABASE & REAL USER DISCOVERY STORE
+// ============================================================================
+
+interface DatabaseFile {
+  personalIdCounter: number;
+  users: UserProfile[];
+  credentials: { [userId: string]: { salt: string; hash: string } };
+  posts: SocialPost[];
+  collaborativeNotes?: Array<{
+    id: string;
+    workspace: string;
+    authorId: string;
+    authorName: string;
+    authorPersonalId: string;
+    role: string;
+    text: string;
+    timestamp: string;
+  }>;
+}
+
+const DB_FILE = path.join(process.cwd(), "data", "database.json");
+
+function loadDatabase(): DatabaseFile {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      return {
+        personalIdCounter: parsed.personalIdCounter || 0,
+        users: Array.isArray(parsed.users) ? parsed.users : [],
+        credentials: parsed.credentials || {},
+        posts: Array.isArray(parsed.posts) ? parsed.posts : [],
+        collaborativeNotes: Array.isArray(parsed.collaborativeNotes) ? parsed.collaborativeNotes : [],
+      };
+    }
+  } catch (err) {
+    console.warn("Could not read database file, starting fresh:", err);
+  }
+  return { personalIdCounter: 0, users: [], credentials: {}, posts: [], collaborativeNotes: [] };
+}
+
+const dbData = loadDatabase();
+const usersStore: UserProfile[] = dbData.users;
+const userCredentials = new Map<string, { salt: string; hash: string }>(Object.entries(dbData.credentials));
+const sessionsStore = new Map<string, string>(); // token -> userId
+const postsStore: SocialPost[] = dbData.posts;
+const collaborativeNotesStore: Array<{
+  id: string;
+  workspace: string;
+  authorId: string;
+  authorName: string;
+  authorPersonalId: string;
+  role: string;
+  text: string;
+  timestamp: string;
+}> = dbData.collaborativeNotes || [];
+let personalIdCounter = dbData.personalIdCounter;
+
+function saveDatabase() {
+  try {
+    const credsObj: Record<string, { salt: string; hash: string }> = {};
+    for (const [k, v] of userCredentials.entries()) {
+      credsObj[k] = v;
+    }
+    const data: DatabaseFile = {
+      personalIdCounter,
+      users: usersStore,
+      credentials: credsObj,
+      posts: postsStore,
+      collaborativeNotes: collaborativeNotesStore,
+    };
+    const dir = path.dirname(DB_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Failed to save database:", err);
+  }
+}
+
+// Salted PBKDF2 Password Hashing
+function hashPassword(password: string, salt = crypto.randomBytes(16).toString("hex")) {
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512").toString("hex");
+  return { salt, hash };
+}
+
+function verifyPassword(password: string, salt: string, expectedHash: string): boolean {
+  const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512").toString("hex");
+  return crypto.timingSafeEqual(Buffer.from(expectedHash, "hex"), Buffer.from(verifyHash, "hex"));
+}
+
+function generatePersonalId(): string {
+  personalIdCounter += 1;
+  const candidate = `ECN-${String(personalIdCounter).padStart(6, "0")}`;
+  if (usersStore.some((u) => u.personalId === candidate)) {
+    return generatePersonalId();
+  }
+  return candidate;
+}
+
+// Helper to sanitize user profile for responses
+function sanitizeUser(user: UserProfile, isOwner = false): UserProfile {
+  const copy = { ...user };
+  if (!isOwner && !user.privacy.isPublic) {
+    if (!user.privacy.showEmail) copy.email = "[Hidden by User Privacy]";
+    if (!user.privacy.showPhone) copy.phone = "[Hidden by User Privacy]";
+  }
+  return copy;
+}
+
+// Helper to authenticate request
+function getAuthUser(req: express.Request): UserProfile | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.substring(7);
+  const userId = sessionsStore.get(token);
+  if (!userId) return null;
+  return usersStore.find((u) => u.id === userId) || null;
+}
+
 // Health check endpoint
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
     service: "EconoSphere AI Backend",
+    realUsersCount: usersStore.length,
+    realPostsCount: postsStore.length,
     aiEnabled: !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY"),
   });
 });
@@ -49,12 +172,97 @@ app.post("/api/ai/economist", async (req, res) => {
       return res.status(400).json({ error: "Query is required" });
     }
 
+    const qLower = query.trim().toLowerCase();
+
+    // STRICT REAL USER POLICY: AI Behavior for Economist directory inquiry
+    if (
+      qLower.includes("economists on econosphere") ||
+      qLower.includes("show me economists") ||
+      qLower.includes("who are the economists") ||
+      qLower.includes("find economists") ||
+      qLower.includes("list of economists")
+    ) {
+      const realEconomists = usersStore.filter((u) => u.role === "economist" || u.professionalRole?.toLowerCase().includes("economist"));
+      if (realEconomists.length === 0) {
+        return res.json({
+          result: `There are currently no verified economist profiles available.
+
+*In accordance with EconoSphere AI's Strict Real User Policy, economist profiles exist only after authentic scholars register and verify their credentials. No fictional or placeholder profiles are generated.*`,
+          provenance: "EconoSphere Verified User Registry (Strict Real User Policy)",
+          generatedAt: new Date().toISOString(),
+          confidence: "Authoritative Database Record",
+        });
+      }
+
+      const formatted = realEconomists
+        .map(
+          (e) =>
+            `- **${e.fullName}** (\`${e.personalId}\`) — ${e.institution || "Research Institution"}, ${e.country || "Global"} (${e.fieldOfStudy || e.professionalRole || "Economics"})`
+        )
+        .join("\n");
+
+      return res.json({
+        result: `### Verified Economists on EconoSphere AI
+
+The following authentic verified economist profiles are registered in the platform database:
+
+${formatted}`,
+        provenance: "EconoSphere Verified User Registry",
+        generatedAt: new Date().toISOString(),
+        confidence: "Authoritative Database Record",
+      });
+    }
+
+    // STRICT REAL USER POLICY: AI Behavior for Popular Posts inquiry
+    if (
+      qLower.includes("popular posts") ||
+      qLower.includes("top posts") ||
+      qLower.includes("trending posts") ||
+      qLower.includes("show me posts") ||
+      qLower.includes("show me the posts")
+    ) {
+      if (postsStore.length === 0) {
+        return res.json({
+          result: `No posts available yet.
+
+*Be the first verified scholar to share empirical findings, price transmission models, or policy analysis on the community research feed.*`,
+          provenance: "EconoSphere Community Feed Registry",
+          generatedAt: new Date().toISOString(),
+          confidence: "Authoritative Database Record",
+        });
+      }
+
+      const sorted = [...postsStore]
+        .sort((a, b) => (b.likes?.length || 0) + (b.comments?.length || 0) - ((a.likes?.length || 0) + (a.comments?.length || 0)))
+        .slice(0, 5);
+
+      const formatted = sorted
+        .map(
+          (p) =>
+            `- **${p.title}** by ${p.authorName} (\`${p.authorPersonalId}\`)\n  *${p.likes?.length || 0} likes • ${p.comments?.length || 0} comments*\n  "${p.content.slice(0, 160)}..."`
+        )
+        .join("\n\n");
+
+      return res.json({
+        result: `### Popular Research Publications (Verified Database)
+
+${formatted}`,
+        provenance: "EconoSphere Community Feed Registry",
+        generatedAt: new Date().toISOString(),
+        confidence: "Authoritative Database Record",
+      });
+    }
+
     const ai = getGeminiClient();
     if (ai) {
       const systemInstruction = `You are a Senior Chief Global Economist and Econometrician at EconoSphere AI.
 Provide an institutional-grade, rigorous economic intelligence report in response to the user's inquiry.
 Language: ${language}.
 User Context: Role=${userRole || "Economist"}, Country=${country || "Global"}, Product/Market=${product || "General"}, Level=${marketLevel || "Macro"}.
+
+CRITICAL MANDATE:
+- STRICT REAL USER POLICY: Never invent, hallucinate, or simulate fake platform users, economists, personal IDs, follower counts, or artificial engagement.
+- If asked about platform users or posts, state only what exists or refer to the authentic directory.
 
 Formatting & Tone:
 - Professional, objective, academic yet actionable.
@@ -603,60 +811,8 @@ app.get("/api/data/worldbank", async (req, res) => {
 });
 
 // ============================================================================
-// IN-MEMORY USER STORE & CRYPTOGRAPHIC AUTHENTICATION ENGINE
+// AUTHENTICATION & IDENTITY ENDPOINTS
 // ============================================================================
-
-// Salted PBKDF2 Password Hashing (Never plaintext, never exposed)
-function hashPassword(password: string, salt = crypto.randomBytes(16).toString("hex")) {
-  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512").toString("hex");
-  return { salt, hash };
-}
-
-function verifyPassword(password: string, salt: string, expectedHash: string): boolean {
-  const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512").toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(expectedHash, "hex"), Buffer.from(verifyHash, "hex"));
-}
-
-// User memory store
-const usersStore: UserProfile[] = JSON.parse(JSON.stringify(VERIFIED_ECONOMISTS));
-const userCredentials = new Map<string, { salt: string; hash: string }>();
-const sessionsStore = new Map<string, string>(); // token -> userId
-
-// Seed initial verified users with secure credentials
-usersStore.forEach((u) => {
-  const { salt, hash } = hashPassword("EconoSphere2026!");
-  userCredentials.set(u.id, { salt, hash });
-});
-
-let personalIdCounter = 100;
-function generatePersonalId(): string {
-  personalIdCounter += 1;
-  const candidate = `ECN-${String(personalIdCounter).padStart(6, "0")}`;
-  if (usersStore.some((u) => u.personalId === candidate)) {
-    return generatePersonalId();
-  }
-  return candidate;
-}
-
-// Helper to sanitize user profile for responses (NEVER returns credentials)
-function sanitizeUser(user: UserProfile, isOwner = false): UserProfile {
-  const copy = { ...user };
-  if (!isOwner && !user.privacy.isPublic) {
-    if (!user.privacy.showEmail) copy.email = "[Hidden by User Privacy]";
-    if (!user.privacy.showPhone) copy.phone = "[Hidden by User Privacy]";
-  }
-  return copy;
-}
-
-// Helper to authenticate request
-function getAuthUser(req: express.Request): UserProfile | null {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-  const token = authHeader.substring(7);
-  const userId = sessionsStore.get(token);
-  if (!userId) return null;
-  return usersStore.find((u) => u.id === userId) || null;
-}
 
 // POST /api/auth/register
 app.post("/api/auth/register", (req, res) => {
@@ -725,12 +881,12 @@ app.post("/api/auth/register", (req, res) => {
       badges: [{ id: `b-${Date.now()}`, name: "Registered Scholar", icon: "CheckCircle2", issuer: "EconoSphere AI", date: new Date().getFullYear().toString() }],
       achievements: ["Registered on EconoSphere Institutional Terminal"],
       publicationsCount: 0,
-      projectsCount: 1,
+      projectsCount: 0,
       followersCount: 0,
-      followingCount: 2,
-      connectionsCount: 1,
+      followingCount: 0,
+      connectionsCount: 0,
       followers: [],
-      following: ["user-1", "user-2"],
+      following: [],
       connections: [],
       privacy: { isPublic: true, showEmail: false, showPhone: false },
       emailVerified: false,
@@ -739,6 +895,7 @@ app.post("/api/auth/register", (req, res) => {
     };
 
     usersStore.push(newUser);
+    saveDatabase();
 
     // Create session token
     const token = crypto.randomBytes(32).toString("hex");
@@ -833,6 +990,7 @@ app.put("/api/auth/profile", (req, res) => {
   if (Array.isArray(researchInterests)) user.researchInterests = researchInterests;
   if (privacy) user.privacy = { ...user.privacy, ...privacy };
 
+  saveDatabase();
   return res.json({ message: "Profile updated successfully.", user: sanitizeUser(user, true) });
 });
 
@@ -841,6 +999,7 @@ app.post("/api/auth/verify-email", (req, res) => {
   const user = getAuthUser(req);
   if (!user) return res.status(401).json({ error: "Unauthorized." });
   user.emailVerified = true;
+  saveDatabase();
   return res.json({ message: "Email verified successfully.", user: sanitizeUser(user, true) });
 });
 
@@ -857,6 +1016,7 @@ app.post("/api/auth/reset-password", (req, res) => {
   }
   const { salt, hash } = hashPassword(newPassword);
   userCredentials.set(user.id, { salt, hash });
+  saveDatabase();
   return res.json({ message: "Password updated successfully. You can now log in with your new password." });
 });
 
@@ -933,6 +1093,8 @@ app.post("/api/users/follow", (req, res) => {
     target.followersCount += 1;
   }
 
+  saveDatabase();
+
   return res.json({
     isFollowing: !isFollowing,
     followingCount: user.followingCount,
@@ -966,6 +1128,8 @@ app.post("/api/users/connect", (req, res) => {
     target.connectionsCount += 1;
   }
 
+  saveDatabase();
+
   return res.json({
     isConnected: !isConnected,
     connectionsCount: user.connectionsCount,
@@ -973,10 +1137,8 @@ app.post("/api/users/connect", (req, res) => {
 });
 
 // ============================================================================
-// SOCIAL ECONOMICS PLATFORM & FEED STORE
+// SOCIAL ECONOMICS PLATFORM & FEED ENDPOINTS
 // ============================================================================
-
-const postsStore: SocialPost[] = JSON.parse(JSON.stringify(INITIAL_SOCIAL_POSTS));
 
 // GET /api/posts
 app.get("/api/posts", (req, res) => {
@@ -1068,7 +1230,8 @@ app.post("/api/posts", (req, res) => {
   };
 
   postsStore.unshift(newPost);
-  user.projectsCount += 1;
+  user.publicationsCount = (user.publicationsCount || 0) + 1;
+  saveDatabase();
 
   return res.status(201).json({ message: "Post published successfully!", post: newPost });
 });
@@ -1087,6 +1250,8 @@ app.post("/api/posts/:id/like", (req, res) => {
   } else {
     post.likes.push(user.id);
   }
+
+  saveDatabase();
 
   return res.json({ isLiked: !liked, likesCount: post.likes.length });
 });
@@ -1118,6 +1283,8 @@ app.post("/api/posts/:id/comment", (req, res) => {
   };
 
   post.comments.push(comment);
+  saveDatabase();
+
   return res.status(201).json({ message: "Comment added.", comment });
 });
 
@@ -1143,6 +1310,8 @@ app.post("/api/posts/:id/poll-vote", (req, res) => {
   }
 
   post.poll.totalVotes = post.poll.options.reduce((acc, opt) => acc + opt.votes, 0);
+  saveDatabase();
+
   return res.json({ poll: post.poll });
 });
 
@@ -1161,6 +1330,8 @@ app.post("/api/posts/:id/bookmark", (req, res) => {
     post.bookmarks.push(user.id);
   }
 
+  saveDatabase();
+
   return res.json({ isBookmarked: !bookmarked, bookmarksCount: post.bookmarks.length });
 });
 
@@ -1169,6 +1340,8 @@ app.post("/api/posts/:id/report", (req, res) => {
   const post = postsStore.find((p) => p.id === req.params.id);
   if (!post) return res.status(404).json({ error: "Post not found." });
   post.reported = true;
+  saveDatabase();
+
   return res.json({ message: "Post flagged for institutional academic review." });
 });
 
@@ -1185,7 +1358,62 @@ app.delete("/api/posts/:id", (req, res) => {
   }
 
   postsStore.splice(index, 1);
+  saveDatabase();
+
   return res.json({ message: "Post deleted successfully." });
+});
+
+// ============================================================================
+// COLLABORATIVE WORKSPACE NOTES (REAL USER PERSISTED)
+// ============================================================================
+
+// GET /api/collaborate/notes
+app.get("/api/collaborate/notes", (req, res) => {
+  const { workspace } = req.query;
+  let notes = collaborativeNotesStore;
+  if (workspace) {
+    notes = notes.filter((n) => n.workspace === workspace);
+  }
+  return res.json({ notes });
+});
+
+// POST /api/collaborate/notes
+app.post("/api/collaborate/notes", (req, res) => {
+  const user = getAuthUser(req);
+  if (!user) return res.status(401).json({ error: "Please log in to contribute collaborative research notes." });
+
+  const { workspace = "general", text } = req.body;
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: "Note text cannot be empty." });
+  }
+
+  const newNote = {
+    id: `note-${Date.now()}`,
+    workspace,
+    authorId: user.id,
+    authorName: user.fullName,
+    authorPersonalId: user.personalId,
+    role: user.professionalRole || user.role,
+    text: text.trim(),
+    timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+  };
+
+  collaborativeNotesStore.unshift(newNote);
+  saveDatabase();
+
+  return res.status(201).json({ message: "Collaborative note saved.", note: newNote });
+});
+
+// ============================================================================
+// SEGREGATED DEMO DATASET ENDPOINT (Strictly labeled DEMO DATA for Dev/Testing)
+// ============================================================================
+
+app.get("/api/demo/data", (_req, res) => {
+  return res.json({
+    info: DEMO_DATASET_INFO,
+    users: DEMO_USERS,
+    posts: DEMO_POSTS,
+  });
 });
 
 // ============================================================================

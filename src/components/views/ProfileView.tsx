@@ -58,6 +58,7 @@ export const ProfileView: React.FC = () => {
   const [editSkills, setEditSkills] = useState(profileUser?.skills?.join(", ") || "");
   const [editInterests, setEditInterests] = useState(profileUser?.researchInterests?.join(", ") || "");
   const [saveStatus, setSaveStatus] = useState<string>("");
+  const [copiedToast, setCopiedToast] = useState(false);
 
   useEffect(() => {
     if (profileUser) {
@@ -137,11 +138,20 @@ export const ProfileView: React.FC = () => {
 
   const copyPersonalId = () => {
     navigator.clipboard?.writeText(profileUser.personalId);
-    alert(`Personal ID ${profileUser.personalId} copied to clipboard!`);
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 2000);
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 font-sans max-w-5xl mx-auto text-neutral-200">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 font-sans max-w-5xl mx-auto text-neutral-200 relative">
+      {/* Toast Feedback */}
+      {copiedToast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-2 bg-neutral-900 border border-emerald-500/60 text-emerald-400 text-xs font-mono rounded shadow-2xl flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" />
+          <span>Personal ID {profileUser.personalId} copied to clipboard!</span>
+        </div>
+      )}
+
       {/* Back button if viewing another user's profile */}
       {targetProfileUser && currentUser && targetProfileUser.id !== currentUser.id && (
         <button
@@ -449,30 +459,40 @@ export const ProfileView: React.FC = () => {
           <div className="text-xs text-neutral-400">
             Active empirical models, econometric specifications, and micro-equilibrium labs.
           </div>
-          <div className="grid grid-cols-1 gap-4">
-            {personalLabs.map((lab) => (
-              <div
-                key={lab.id}
-                className="bg-[#121318] border border-white/10 rounded-xl p-5 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-red-400">{lab.category}</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-neutral-400 border border-white/10">
-                      {lab.modelType}
-                    </span>
+          {personalLabs.length === 0 ? (
+            <div className="p-8 text-center bg-[#121318] border border-white/10 rounded-xl space-y-2">
+              <BarChart2 className="w-8 h-8 text-neutral-500 mx-auto" />
+              <div className="text-sm font-semibold text-white">No Research Labs Saved Yet</div>
+              <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                Run econometric or market equilibrium simulations in the Macro & Micro modules to pin custom models to your scholar profile.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {personalLabs.map((lab) => (
+                <div
+                  key={lab.id}
+                  className="bg-[#121318] border border-white/10 rounded-xl p-5 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold text-red-400">{lab.category}</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-neutral-400 border border-white/10">
+                        {lab.modelType}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-neutral-500">Updated {lab.updatedAt}</span>
                   </div>
-                  <span className="text-[11px] font-mono text-neutral-500">Updated {lab.updatedAt}</span>
+                  <h4 className="text-sm font-bold text-white">{lab.title}</h4>
+                  <p className="text-xs text-neutral-300 leading-relaxed">{lab.description}</p>
+                  <div className="p-3 bg-black/40 rounded border border-white/5 font-mono text-[11px] text-neutral-300 space-y-1">
+                    <div><span className="text-neutral-500">Regression / Equilibrium Result: </span>{lab.resultsSummary}</div>
+                    <div><span className="text-neutral-500">Policy Finding: </span>{lab.notes}</div>
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-white">{lab.title}</h4>
-                <p className="text-xs text-neutral-300 leading-relaxed">{lab.description}</p>
-                <div className="p-3 bg-black/40 rounded border border-white/5 font-mono text-[11px] text-neutral-300 space-y-1">
-                  <div><span className="text-neutral-500">Regression / Equilibrium Result: </span>{lab.resultsSummary}</div>
-                  <div><span className="text-neutral-500">Policy Finding: </span>{lab.notes}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

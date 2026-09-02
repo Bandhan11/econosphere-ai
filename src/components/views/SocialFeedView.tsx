@@ -26,8 +26,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { SocialPost, EconomicPostType, EconomicCategory, EconomicScaleLevel } from "../../types";
-import { VERIFIED_ECONOMISTS } from "../../data/economicSocialData";
+import { SocialPost, EconomicPostType, EconomicCategory, EconomicScaleLevel, UserProfile } from "../../types";
 
 export const SocialFeedView: React.FC = () => {
   const {
@@ -40,12 +39,34 @@ export const SocialFeedView: React.FC = () => {
 
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [loading, setLoading] = useState(false);
+  const [directoryScholars, setDirectoryScholars] = useState<UserProfile[]>([]);
+  const [loadingDirectory, setLoadingDirectory] = useState(false);
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedScale, setSelectedScale] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Fetch registered scholars
+  const fetchDirectory = async () => {
+    setLoadingDirectory(true);
+    try {
+      const res = await fetch("/api/users/directory");
+      if (res.ok) {
+        const data = await res.json();
+        setDirectoryScholars(data.users || []);
+      }
+    } catch (e) {
+      setDirectoryScholars([]);
+    } finally {
+      setLoadingDirectory(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDirectory();
+  }, []);
 
   // Post Creator State
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -945,72 +966,95 @@ export const SocialFeedView: React.FC = () => {
                 <UserCheck className="w-4 h-4 text-red-400" />
                 <span>Certified Economists Directory</span>
               </div>
-              <span className="text-[10px] font-mono text-neutral-400">ID Lookup</span>
+              <span className="text-[10px] font-mono text-neutral-400">Real Registered</span>
             </div>
 
             <div className="space-y-3">
-              {VERIFIED_ECONOMISTS.map((scholar) => {
-                const isFollowing = currentUser?.following?.includes(scholar.id) || false;
-                const isConnected = currentUser?.connections?.includes(scholar.id) || false;
+              {loadingDirectory ? (
+                <div className="py-6 text-center text-xs text-neutral-500 font-mono">
+                  Loading registered scholars...
+                </div>
+              ) : directoryScholars.length === 0 ? (
+                <div className="py-6 px-3 text-center rounded-lg bg-black/20 border border-dashed border-white/10 space-y-2">
+                  <div className="text-xs font-semibold text-neutral-300">No users yet.</div>
+                  <p className="text-[11px] text-neutral-400 leading-relaxed">
+                    Be the first real economist to create an account and obtain a unique Personal ID.
+                  </p>
+                  {!currentUser && (
+                    <button
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="mt-1 px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded transition-colors"
+                    >
+                      Register Profile
+                    </button>
+                  )}
+                </div>
+              ) : (
+                directoryScholars
+                  .filter((s) => s.id !== currentUser?.id)
+                  .map((scholar) => {
+                    const isFollowing = currentUser?.following?.includes(scholar.id) || false;
+                    const isConnected = currentUser?.connections?.includes(scholar.id) || false;
 
-                return (
-                  <div
-                    key={scholar.id}
-                    className="p-2.5 rounded bg-black/30 border border-white/5 hover:border-white/15 transition-all space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={scholar.avatarUrl}
-                          alt={scholar.fullName}
-                          referrerPolicy="no-referrer"
-                          className="w-9 h-9 rounded-lg object-cover"
-                        />
-                        <div>
-                          <button
-                            onClick={() => viewUserProfile(scholar.personalId)}
-                            className="text-xs font-bold text-white hover:text-red-400 text-left block"
-                          >
-                            {scholar.fullName}
-                          </button>
-                          <div className="text-[10px] font-mono text-red-400 font-bold">
-                            {scholar.personalId}
-                          </div>
-                          <div className="text-[10px] text-neutral-400 truncate max-w-[160px]">
-                            {scholar.institution}
+                    return (
+                      <div
+                        key={scholar.id}
+                        className="p-2.5 rounded bg-black/30 border border-white/5 hover:border-white/15 transition-all space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={scholar.avatarUrl}
+                              alt={scholar.fullName}
+                              referrerPolicy="no-referrer"
+                              className="w-9 h-9 rounded-lg object-cover"
+                            />
+                            <div>
+                              <button
+                                onClick={() => viewUserProfile(scholar.personalId)}
+                                className="text-xs font-bold text-white hover:text-red-400 text-left block"
+                              >
+                                {scholar.fullName}
+                              </button>
+                              <div className="text-[10px] font-mono text-red-400 font-bold">
+                                {scholar.personalId}
+                              </div>
+                              <div className="text-[10px] text-neutral-400 truncate max-w-[160px]">
+                                {scholar.institution}
+                              </div>
+                            </div>
                           </div>
                         </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => followUser(scholar.id)}
+                            className={`flex-1 py-1 text-[11px] font-semibold rounded transition-colors flex items-center justify-center gap-1 ${
+                              isFollowing
+                                ? "bg-neutral-800 text-neutral-300"
+                                : "bg-red-600/80 hover:bg-red-500 text-white"
+                            }`}
+                          >
+                            <UserPlus className="w-3 h-3" />
+                            <span>{isFollowing ? "Following" : "Follow"}</span>
+                          </button>
+
+                          <button
+                            onClick={() => connectUser(scholar.id)}
+                            className={`flex-1 py-1 text-[11px] font-semibold rounded border transition-colors flex items-center justify-center gap-1 ${
+                              isConnected
+                                ? "bg-emerald-950/40 border-emerald-800 text-emerald-300"
+                                : "border-white/10 hover:bg-white/10 text-neutral-300"
+                            }`}
+                          >
+                            <Users className="w-3 h-3" />
+                            <span>{isConnected ? "Connected" : "Connect"}</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={() => followUser(scholar.id)}
-                        className={`flex-1 py-1 text-[11px] font-semibold rounded transition-colors flex items-center justify-center gap-1 ${
-                          isFollowing
-                            ? "bg-neutral-800 text-neutral-300"
-                            : "bg-red-600/80 hover:bg-red-500 text-white"
-                        }`}
-                      >
-                        <UserPlus className="w-3 h-3" />
-                        <span>{isFollowing ? "Following" : "Follow"}</span>
-                      </button>
-
-                      <button
-                        onClick={() => connectUser(scholar.id)}
-                        className={`flex-1 py-1 text-[11px] font-semibold rounded border transition-colors flex items-center justify-center gap-1 ${
-                          isConnected
-                            ? "bg-emerald-950/40 border-emerald-800 text-emerald-300"
-                            : "border-white/10 hover:bg-white/10 text-neutral-300"
-                        }`}
-                      >
-                        <Users className="w-3 h-3" />
-                        <span>{isConnected ? "Connected" : "Connect"}</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })
+              )}
             </div>
           </div>
         </div>
