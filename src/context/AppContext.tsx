@@ -12,21 +12,31 @@ import { translations, TranslationSchema } from "../i18n/translations";
 
 export type NavSection =
   | "home"
-  | "learn"
-  | "simulate"
-  | "markets"
   | "economy"
-  | "companies"
-  | "research"
-  | "caseStudies"
-  | "forecast"
-  | "dashboard"
-  | "aiEconomist"
-  | "collaborate"
-  | "dataExplorer"
+  | "countries"
+  | "localEconomy"
+  | "markets"
+  | "currencies"
+  | "commodities"
+  | "jobs"
   | "newsEvents"
-  | "challenges"
-  | "profile";
+  | "aiEconomist"
+  | "simulate"
+  | "forecast"
+  | "research"
+  | "learn"
+  | "dataExplorer"
+  | "companies"
+  | "trade"
+  | "agriculture"
+  | "caseStudies"
+  | "collaborate"
+  | "labs"
+  | "magazine"
+  | "career"
+  | "profile"
+  | "dashboard"
+  | "challenges";
 
 export interface UserAlert {
   id: string;
@@ -38,6 +48,8 @@ export interface UserAlert {
   isTriggered: boolean;
   createdAt: string;
 }
+
+export type AIExplanationLevel = "ELI5" | "Beginner" | "University" | "Advanced" | "Professional";
 
 export interface AppContextType {
   activeTab: NavSection;
@@ -63,11 +75,18 @@ export interface AppContextType {
   setSearchQuery: (query: string) => void;
   isSearchOpen: boolean;
   setIsSearchOpen: (open: boolean) => void;
+  isMobileNavOpen: boolean;
+  setIsMobileNavOpen: (open: boolean) => void;
+  aiExplanationLevel: AIExplanationLevel;
+  setAiExplanationLevel: (level: AIExplanationLevel) => void;
   alerts: UserAlert[];
   addAlert: (alert: Omit<UserAlert, "id" | "isTriggered" | "createdAt">) => void;
   removeAlert: (id: string) => void;
   savedSimulations: any[];
   saveSimulation: (sim: any) => void;
+  personalLabs: any[];
+  createPersonalLab: (lab: any) => void;
+  deletePersonalLab: (id: string) => void;
   currencyDenomination: "USD" | "BDT" | "EUR" | "INR" | "JPY";
   setCurrencyDenomination: (curr: "USD" | "BDT" | "EUR" | "INR" | "JPY") => void;
   navigateToMarket: (marketId: string) => void;
@@ -88,7 +107,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("square-pharma");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+  const [aiExplanationLevel, setAiExplanationLevel] = useState<AIExplanationLevel>("University");
   const [currencyDenomination, setCurrencyDenomination] = useState<"USD" | "BDT" | "EUR" | "INR" | "JPY">("USD");
+
+  const [personalLabs, setPersonalLabs] = useState<any[]>([
+    {
+      id: "lab-1",
+      title: "Bangladesh Food Inflation & Logistics Spread Lab",
+      description: "Empirical pass-through model evaluating fuel price shocks against retail potato and rice price margins in northern divisions.",
+      category: "Inflation",
+      modelType: "OLS & Distributed Lag",
+      parameters: { fuelShockPct: 12.5, storageHoldingWeeks: 4, interestRateBps: 100 },
+      notes: "Baseline shows 10% fuel hike induces +2.8% food CPI inflation with a 3-week transmission lag.",
+      resultsSummary: "R² = 0.74, F = 38.2, highly significant transmission parameter.",
+      createdAt: "2026-08-15",
+      updatedAt: "2026-08-28",
+      collaborators: ["Dr. A. Rahman", "S. Chowdhury"],
+    },
+    {
+      id: "lab-2",
+      title: "Naogaon Rice Value Chain Equilibrium Simulation",
+      description: "Micro-market supply and demand equilibrium with open-market sales (OMS) intervention threshold.",
+      category: "Commodity Market",
+      modelType: "Non-linear Equilibrium",
+      parameters: { harvestYieldMT: 450000, millersSyndicateMargin: 18, omsSupplyMT: 25000 },
+      notes: "Direct public grain distribution of 25k MT curbs speculative wholesale markups by ~৳4.5/kg.",
+      resultsSummary: "Market equilibrium restored within 14 trading days.",
+      createdAt: "2026-08-20",
+      updatedAt: "2026-08-30",
+      collaborators: ["M. Hossain"],
+    },
+    {
+      id: "lab-3",
+      title: "Central Bank Monetary Policy & Taylor Rule Cascade",
+      description: "Taylor Rule interest rate calibration with inflation gap and output gap weights.",
+      category: "Monetary Policy",
+      modelType: "Taylor Rule 1993",
+      parameters: { neutralRate: 4.0, inflationTarget: 5.5, currentInflation: 9.7, outputGap: -1.2 },
+      notes: "Model recommends policy repo rate hike of +150 bps to anchor 12-month expected inflation.",
+      resultsSummary: "Target policy rate: 10.25% (Observed repo: 10.0%).",
+      createdAt: "2026-08-22",
+      updatedAt: "2026-09-01",
+      collaborators: ["Institutional Quant Group"],
+    },
+  ]);
 
   const [alerts, setAlerts] = useState<UserAlert[]>([
     {
@@ -164,6 +227,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSavedSimulations((prev) => [{ ...sim, savedAt: new Date().toISOString() }, ...prev]);
   };
 
+  const createPersonalLab = (lab: any) => {
+    const newLab = {
+      ...lab,
+      id: `lab-${Date.now()}`,
+      createdAt: new Date().toISOString().split("T")[0],
+      updatedAt: new Date().toISOString().split("T")[0],
+      collaborators: ["You"],
+    };
+    setPersonalLabs((prev) => [newLab, ...prev]);
+  };
+
+  const deletePersonalLab = (id: string) => {
+    setPersonalLabs((prev) => prev.filter((l) => l.id !== id));
+  };
+
   const navigateToMarket = (marketId: string) => {
     setSelectedMarketId(marketId);
     setActiveTab("simulate");
@@ -210,11 +288,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSearchQuery,
         isSearchOpen,
         setIsSearchOpen,
+        isMobileNavOpen,
+        setIsMobileNavOpen,
+        aiExplanationLevel,
+        setAiExplanationLevel,
         alerts,
         addAlert,
         removeAlert,
         savedSimulations,
         saveSimulation,
+        personalLabs,
+        createPersonalLab,
+        deletePersonalLab,
         currencyDenomination,
         setCurrencyDenomination,
         navigateToMarket,

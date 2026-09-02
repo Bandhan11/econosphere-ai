@@ -21,18 +21,29 @@ import { DataExplorerView } from "./components/views/DataExplorerView";
 import { NewsEventsView } from "./components/views/NewsEventsView";
 import { ChallengesView } from "./components/views/ChallengesView";
 import { ProfileView } from "./components/views/ProfileView";
+import { LocalEconomyView } from "./components/views/LocalEconomyView";
+import { TradeView } from "./components/views/TradeView";
+import { CareerView } from "./components/views/CareerView";
+import { LabsView } from "./components/views/LabsView";
+import { MagazineView } from "./components/views/MagazineView";
+import { BottomNav } from "./components/layout/BottomNav";
 
 const MainContent: React.FC = () => {
   const { activeTab } = useApp();
 
   return (
-    <main className="flex-1 overflow-y-auto bg-[#0E0F12] text-[#F3F2EE]">
+    <main className="flex-1 overflow-y-auto pb-16 md:pb-0 bg-[#0E0F12] text-[#F3F2EE]">
       {activeTab === "home" && <HomeView />}
       {activeTab === "learn" && <LearnView />}
       {activeTab === "simulate" && <SimulateView />}
       {activeTab === "markets" && <MarketsView />}
-      {activeTab === "economy" && <EconomyView />}
+      {(activeTab === "economy" || activeTab === "countries") && <EconomyView />}
+      {activeTab === "localEconomy" && <LocalEconomyView />}
+      {activeTab === "trade" && <TradeView />}
       {activeTab === "companies" && <CompaniesView />}
+      {activeTab === "career" && <CareerView />}
+      {activeTab === "labs" && <LabsView />}
+      {activeTab === "magazine" && <MagazineView />}
       {activeTab === "research" && <ResearchView />}
       {activeTab === "caseStudies" && <CaseStudiesView />}
       {activeTab === "forecast" && <ForecastView />}
@@ -52,10 +63,11 @@ export default function App() {
     <AppProvider>
       <div className="min-h-screen bg-[#0D0E10] text-[#F3F2EE] flex flex-col antialiased selection:bg-red-600 selection:text-white">
         <Header />
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden relative">
           <Navigation />
           <MainContent />
         </div>
+        <BottomNav />
         <SearchModal />
       </div>
     </AppProvider>

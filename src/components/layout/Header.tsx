@@ -14,6 +14,7 @@ import {
   Check,
   DollarSign,
   AlertCircle,
+  Menu,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { SUPPORTED_LANGUAGES } from "../../i18n/translations";
@@ -32,6 +33,8 @@ export const Header: React.FC = () => {
     navigateToInstrument,
     currencyDenomination,
     setCurrencyDenomination,
+    isMobileNavOpen,
+    setIsMobileNavOpen,
   } = useApp();
 
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -92,17 +95,27 @@ export const Header: React.FC = () => {
       {/* Main Header Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
         {/* Left: Brand / Title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Mobile hamburger menu toggle */}
+          <button
+            id="mobile-nav-toggle-button"
+            onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+            className="md:hidden p-2 text-neutral-300 hover:text-white bg-[#17181D] border border-white/10 hover:border-red-600/40 rounded flex items-center justify-center min-w-[40px] min-h-[40px]"
+            aria-label="Toggle navigation drawer"
+          >
+            <Menu className="w-5 h-5 text-neutral-300" />
+          </button>
+
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-red-600 flex items-center justify-center border border-white/20 shadow-md">
+            <div className="w-8 h-8 bg-red-600 flex items-center justify-center border border-white/20 shadow-md shrink-0">
               <Globe2 className="w-4 h-4 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-serif italic font-bold text-lg tracking-tight text-white">
+                <span className="font-serif italic font-bold text-base sm:text-lg tracking-tight text-white whitespace-nowrap">
                   EconoSphere <span className="font-mono font-bold text-xs not-italic text-red-500 tracking-widest uppercase ml-1">AI</span>
                 </span>
-                <span className="hidden md:inline-block px-2 py-0.5 text-[9px] font-mono tracking-[0.2em] bg-white/5 text-neutral-300 border border-white/15 uppercase font-medium">
+                <span className="hidden lg:inline-block px-2 py-0.5 text-[9px] font-mono tracking-[0.2em] bg-white/5 text-neutral-300 border border-white/15 uppercase font-medium">
                   Vol. 024 // Archive
                 </span>
               </div>

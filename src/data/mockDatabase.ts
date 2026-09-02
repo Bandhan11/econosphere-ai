@@ -2003,3 +2003,96 @@ export const BANGLADESH_DIVISIONS = [
   },
 ];
 
+export const ECONOMICS_BOOKS = [
+  {
+    id: "book-1",
+    title: "The Wealth of Nations",
+    author: "Adam Smith",
+    year: 1776,
+    category: "Classic Economic Thought" as const,
+    pages: 950,
+    coverColor: "#7F1D1D",
+    summary:
+      "The foundational treatise on classical economics, analyzing the division of labor, productivity, capital accumulation, and the invisible hand of free market competition.",
+    chapters: [
+      { number: 1, title: "Of the Division of Labor", summary: "How specialization in the pin factory yields exponential increases in output per worker." },
+      { number: 2, title: "Of the Principle which gives Occasion to the Division of Labor", summary: "The human propensity to truck, barter, and exchange." },
+      { number: 4, title: "Of the Origin and Use of Money", summary: "The evolution from barter commodities to precious metals and minted coins." },
+      { number: 7, title: "Of the Natural and Market Price of Commodities", summary: "How market supply and effective demand gravitate around cost-of-production natural prices." },
+    ],
+    keyTakeaways: [
+      "Division of labor is the primary engine of labor productivity and economic growth.",
+      "Self-interested market actors inadvertently advance societal welfare through market coordination.",
+      "Natural price reflects baseline wages, profits, and rent required to bring goods to market.",
+    ],
+    license: "Public Domain" as const,
+  },
+  {
+    id: "book-2",
+    title: "The General Theory of Employment, Interest and Money",
+    author: "John Maynard Keynes",
+    year: 1936,
+    category: "Macroeconomics" as const,
+    pages: 428,
+    coverColor: "#1E3A8A",
+    summary:
+      "Revolutionized macroeconomic theory by challenging Say's Law and demonstrating that market economies can languish in prolonged underemployment equilibrium without government demand stimulus.",
+    chapters: [
+      { number: 3, title: "The Principle of Effective Demand", summary: "Aggregate demand equals consumption plus investment; output adjusts to demand, not vice versa." },
+      { number: 10, title: "The Marginal Propensity to Consume and the Multiplier", summary: "Kahn's employment multiplier formalized into the expenditure multiplier." },
+      { number: 13, title: "The General Theory of the Rate of Interest", summary: "Interest as the reward for parting with liquidity, determined by money supply and liquidity preference." },
+      { number: 22, title: "Notes on the Trade Cycle", summary: "Fluctuations in the marginal efficiency of capital driven by animal spirits." },
+    ],
+    keyTakeaways: [
+      "Wages are sticky downward; labor markets do not self-clear during deflationary contractions.",
+      "Aggregate demand deficiency causes chronic unemployment; fiscal stimulus can restore full employment.",
+      "Liquidity preference creates interest rate floors where monetary policy loses stimulative power.",
+    ],
+    license: "Public Domain" as const,
+  },
+  {
+    id: "book-3",
+    title: "Principles of Political Economy and Taxation",
+    author: "David Ricardo",
+    year: 1817,
+    category: "Classic Economic Thought" as const,
+    pages: 390,
+    coverColor: "#065F46",
+    summary:
+      "Formulated the theory of comparative advantage, Ricardian equivalence, and the differential theory of land rent.",
+    chapters: [
+      { number: 2, title: "On Rent", summary: "Rent arises from the application of capital to successively less fertile soil." },
+      { number: 7, title: "On Foreign Trade", summary: "Portugal and England trade cloth and wine to mutual benefit through comparative costs." },
+      { number: 17, title: "On Taxes on Other Commodities than Raw Produce", summary: "Tax incidence and welfare distortions across manufactured goods." },
+    ],
+    keyTakeaways: [
+      "Mutually beneficial international trade occurs even when one country possesses an absolute advantage in all goods.",
+      "Differential rent transfers wealth to landowners as populations expand onto marginal agricultural land.",
+    ],
+    license: "Public Domain" as const,
+  },
+  {
+    id: "book-4",
+    title: "Development as Freedom",
+    author: "Amartya Sen",
+    year: 1999,
+    category: "Development" as const,
+    pages: 384,
+    coverColor: "#92400E",
+    summary:
+      "Proposes that human freedom and substantive capabilities are both the primary objective and the principal means of economic development, moving beyond GDP per capita.",
+    chapters: [
+      { number: 1, title: "The Perspective of Freedom", summary: "Evaluating development in terms of the expansion of capabilities to lead lives people have reason to value." },
+      { number: 4, title: "Poverty as Capability Deprivation", summary: "Why income metrics alone fail to capture multi-dimensional deprivation and social exclusion." },
+      { number: 7, title: "Famines and Other Crises", summary: "Entitlement approaches and the political economy of famine prevention in democracies." },
+    ],
+    keyTakeaways: [
+      "Real freedoms include political participation, education, healthcare, and economic security.",
+      "Famines are caused by entitlement collapses and distribution failures rather than aggregate food shortages.",
+      "Empowerment of women directly enhances child health, literacy, and community fertility stabilization.",
+    ],
+    license: "Open Access / Creative Commons" as const,
+  },
+];
+
+

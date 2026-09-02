@@ -356,3 +356,98 @@ export interface GamificationChallenge {
   };
   turns: number;
 }
+
+export interface EconomicsBook {
+  id: string;
+  title: string;
+  author: string;
+  year: number;
+  category: "Microeconomics" | "Macroeconomics" | "Econometrics" | "Development" | "Classic Economic Thought" | "Public Finance";
+  pages: number;
+  coverColor: string;
+  summary: string;
+  chapters: { number: number; title: string; summary: string }[];
+  keyTakeaways: string[];
+  license: "Public Domain" | "Open Access / Creative Commons" | "OER Licensed";
+  readUrl?: string;
+}
+
+export interface JobListing {
+  id: string;
+  title: string;
+  organization: string;
+  location: string;
+  country: string;
+  remote: boolean;
+  type: "Full-time" | "Contract" | "Fellowship" | "Internship";
+  experienceLevel: "Entry" | "Mid-level" | "Senior" | "Lead / Director";
+  salaryRange: string;
+  requiredSkills: string[];
+  preferredSkills: string[];
+  education: string;
+  description: string;
+  postedDate: string;
+  deadline: string;
+  category: "Economist" | "Economic Analyst" | "Research Assistant" | "Data Analyst" | "Policy Analyst" | "Multilateral / NGO";
+}
+
+export interface PersonalLab {
+  id: string;
+  title: string;
+  description: string;
+  category: "Inflation" | "Growth" | "Commodity Market" | "Econometrics" | "Fiscal Policy" | "Monetary Policy";
+  modelType: string;
+  parameters: Record<string, any>;
+  notes: string;
+  resultsSummary?: string;
+  createdAt: string;
+  updatedAt: string;
+  collaborators: string[];
+}
+
+export interface MagazineArticle {
+  id: string;
+  title: string;
+  author: string;
+  authorRole: string;
+  date: string;
+  readTime: string;
+  category: "Global Economy" | "Bangladesh Economy" | "Markets" | "Policy" | "Research" | "Technology & AI";
+  tags: string[];
+  excerpt: string;
+  content: string;
+  likes: number;
+  commentsCount: number;
+}
+
+export interface BilateralTradePair {
+  id: string;
+  countryA: string;
+  countryB: string;
+  bilateralVolumeUSD: number; // in Billion USD
+  countryAExportsUSD: number;
+  countryAImportsUSD: number;
+  tradeBalanceUSD: number; // A perspective
+  topExportProducts: { product: string; share: number }[];
+  topImportProducts: { product: string; share: number }[];
+  averageTariff: number; // %
+  tradeAgreement: string;
+  dependencyScore: number; // 0 - 100
+}
+
+export interface CommodityItem {
+  id: string;
+  name: string;
+  category: "Agricultural" | "Energy" | "Metals" | "Livestock";
+  ticker: string;
+  priceUSD: number;
+  unit: string;
+  change24h: number;
+  changePercent: number;
+  inventoryBufferDays: number;
+  supplyStatus: "Surplus" | "Balanced" | "Deficit";
+  priceVolatility: number; // %
+  demandGrowthYoy: number; // %
+  topExporters: string[];
+  description: string;
+}
